@@ -2,9 +2,12 @@
 
 title: "ひよこエンジニアの成長への第一歩"
 tags:
-  - Markdown
-  - Qiita
-  - VSCode
+  - name: Markdown
+    versions: []
+  - name: Qiita
+    versions: []
+  - name: VSCode
+    versions: []
 private: false
 
 ---
