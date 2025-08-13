@@ -1,0 +1,11 @@
+- name: Publish each markdown in articles
+  env:
+    QIITA_TOKEN: ${{ secrets.QIITA_TOKEN }}
+  run: |
+    set -e
+    ls -la "$GITHUB_WORKSPACE/articles"
+    shopt -s nullglob
+    for f in "$GITHUB_WORKSPACE"/articles/*.md; do
+      echo "Publishing $f"
+      npx @qiita/qiita-cli@latest publish "$f"
+    done
