@@ -1,0 +1,21 @@
+name: Publish to Qiita
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "articles/**"
+    branches:
+      - main
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    container: ghcr.io/qiita/qiita-cli:latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Publish articles to Qiita
+        env:
+          QIITA_TOKEN: ${{ secrets.QIITA_TOKEN }}
+        run: |
+          qiita publish articles
