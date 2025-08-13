@@ -15,16 +15,18 @@ jobs:
         with:
           node-version: "20"
 
-      # デバッグ表示（ファイルと先頭25行を確認）
-      - name: Debug list files
-        run: |
-          pwd
-          ls -la
-          ls -la articles || true
-          sed -n '1,25p' articles/firstStep-post.md || true
-
-      # 単一ファイルを直接投稿
-      - name: Publish one file to Qiita
+      # 1) トークンがセットされているかチェック
+      - name: Check token presence
         env:
           QIITA_TOKEN: ${{ secrets.QIITA_TOKEN }}
-        run: npx @qiita/qiita-cli@latest publish articles/firstStep-post.md
+        run: |
+          if [ -z "$QIITA_TOKEN" ]; then
+            echo "ERROR: QIITA_TOKEN is empty"; exit 1; fi
+          echo "QIITA_TOKEN is set."
+
+      # 2) トークンが有効かAPIで検証（401なら権限/値ミス）
+      - name: Verify token with Qiita API
+        env:
+          QIITA_TOKEN: ${{ secrets.QIITA_TOKEN }}
+        run: |
+          code=$(curl -s -o /tmp/me.json -w '%{http_code}' \
