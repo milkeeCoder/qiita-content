@@ -14,7 +14,8 @@ jobs:
         - uses: actions/setup-node@v4
           with:
             node-version: "20"
-        - run: npm install -g @qiita/qiita-cli
+        - name: Check qiita-cli version
+          run: npx @qiita/qiita-cli@latest -v
         - name: Publish articlles to Qiita
           env:
             QIITA_TOKEN: ${{ secrets.QIITA_TOKEN }}
