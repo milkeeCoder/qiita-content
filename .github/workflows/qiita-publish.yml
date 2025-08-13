@@ -15,8 +15,9 @@ jobs:
         with:
           node-version: "20"
 
-      # 1) トークンがセットされているかチェック
+      # 1) Secret が空でないかだけ確認
       - name: Check token presence
+        shell: bash
         env:
           QIITA_TOKEN: ${{ secrets.QIITA_TOKEN }}
         run: |
@@ -24,9 +25,35 @@ jobs:
             echo "ERROR: QIITA_TOKEN is empty"; exit 1; fi
           echo "QIITA_TOKEN is set."
 
-      # 2) トークンが有効かAPIで検証（401なら権限/値ミス）
+      # 2) トークンをAPIで検証（コマンド置換を使わず安全に）
       - name: Verify token with Qiita API
+        shell: bash
         env:
           QIITA_TOKEN: ${{ secrets.QIITA_TOKEN }}
         run: |
-          code=$(curl -s -o /tmp/me.json -w '%{http_code}' \
+          set -euo pipefail
+          curl -s -o /tmp/me.json \
+            -H "Authorization: Bearer ${QIITA_TOKEN}" \
+            https://qiita.com/api/v2/authenticated_user \
+            -w "%{http_code}" > /tmp/status.txt
+          code="$(cat /tmp/status.txt)"
+          echo "HTTP ${code}"
+          head -c 200 /tmp/me.json || true
+          if [ "$code" != "200" ]; then
+            echo "Token invalid or lacks scope (need read_qiita & write_qiita)."
+            exit 1
+          fi
+
+      # 3) 存在確認（ファイル先頭も表示）
+      - name: Debug files
+        shell: bash
+        run: |
+          ls -la
+          ls -la articles || true
+          sed -n '1,25p' articles/firstStep-post.md || true
+
+      # 4) 単一ファイルを明示的に投稿
+      - name: Publish one file to Qiita
+        env:
+          QIITA_TOKEN: ${{ secrets.QIITA_TOKEN }}
+        run: npx @qiita/qiita-cli@latest publish articles/firstStep-post.md
