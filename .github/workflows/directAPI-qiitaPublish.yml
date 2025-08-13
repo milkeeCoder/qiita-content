@@ -27,14 +27,15 @@ jobs:
           sed -n '1,25p' "$GITHUB_WORKSPACE/articles/firstStep-post.md" || true
 
       - name: Post one file to Qiita via API
+        shell: bash
         env:
           QIITA_TOKEN: ${{ secrets.QIITA_TOKEN }}
           FILE: articles/firstStep-post.md
-        shell: bash
         run: |
           set -euo pipefail
-          node - <<'NODE'
+          cat > post.js <<'EOF'
           const fs = require('fs');
+
           const path = process.env.FILE;
           const token = process.env.QIITA_TOKEN;
           const summary = process.env.GITHUB_STEP_SUMMARY;
@@ -73,4 +74,9 @@ jobs:
             console.log('Status', res.status);
             console.log('URL:', data.url);
             console.log('ID:', data.id);
-            fs.appendFileSync(summ
+            fs.appendFileSync(summary, `### ✅ Posted: ${title}\n\n- URL: ${data.url}\n- ID: \`${data.id}\`\n`);
+            if (!res.ok) process.exit(1);
+          })().catch(e => { console.error(e); process.exit(1); });
+          EOF
+
+          node post.js
