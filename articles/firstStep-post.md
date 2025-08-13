@@ -1,5 +1,4 @@
 ---
-
 title: "ひよこエンジニアの成長への第一歩"
 tags:
   - name: Markdown
@@ -9,9 +8,7 @@ tags:
   - name: VSCode
     versions: []
 private: false
-
 ---
-
 # 【学習記録#1】自走型エンジニアへの第一歩：初VS Codeの環境構築とはじめてのGitHub設定
 
 ---
