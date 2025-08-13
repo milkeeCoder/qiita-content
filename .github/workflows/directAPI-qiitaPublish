@@ -1,0 +1,81 @@
+name: Publish to Qiita (API)
+
+on:
+  workflow_dispatch:
+  push:
+    paths: [ "articles/**" ]
+    branches: [ main ]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Show workspace files
+        run: |
+          pwd
+          ls -la
+          ls -la "$GITHUB_WORKSPACE/articles" || true
+          sed -n '1,25p' "$GITHUB_WORKSPACE/articles/firstStep-post.md" || true
+
+      # Qiita APIに直接投稿（front matter をパースして JSON を組み立てます）
+      - name: Post one file to Qiita via API
+        env:
+          QIITA_TOKEN: ${{ secrets.QIITA_TOKEN }}
+          FILE: articles/firstStep-post.md
+        run: |
+          set -euo pipefail
+          if [ -z "${QIITA_TOKEN:-}" ]; then
+            echo "ERROR: QIITA_TOKEN is empty"; exit 1; fi
+
+          node -e '
+          const fs = require("fs");
+          const path = process.env.FILE;
+          const token = process.env.QIITA_TOKEN;
+
+          const text = fs.readFileSync(path, "utf8");
+          const lines = text.split(/\r?\n/);
+
+          if (lines[0].trim() !== "---") {
+            console.error("Front matter not found at top"); process.exit(1);
+          }
+          let i = 1; const yaml = [];
+          while (i < lines.length && lines[i].trim() !== "---") { yaml.push(lines[i]); i++; }
+          if (i >= lines.length) { console.error("Front matter not closed"); process.exit(1); }
+          const body = lines.slice(i + 1).join("\n");
+          const y = yaml.join("\n");
+
+          // 超軽量パーサ（必要項目のみ抽出）
+          function pick(reg){ const m = y.match(reg); return m ? m[1].replace(/^"|"$/g,"").trim() : ""; }
+          const title = pick(/^title:\s*(.+)\s*$/m);
+          if (!title) { console.error("title is missing in front matter"); process.exit(1); }
+
+          const priv = (y.match(/^private:\s*(true|false)\s*$/m)||[])[1] === "true";
+
+          const tags = [];
+          const tagRe = /^\s*-\s*name:\s*(.+)\s*$/mg;
+          let m; while ((m = tagRe.exec(y))) { tags.push({ name: m[1].trim(), versions: [] }); }
+          if (tags.length === 0) { console.error("tags (name) not found"); process.exit(1); }
+
+          (async () => {
+            const res = await fetch("https://qiita.com/api/v2/items", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + token
+              },
+              body: JSON.stringify({ title, body, tags, private: priv })
+            });
+            const txt = await res.text();
+            console.log("Status", res.status);
+            console.log(txt.slice(0, 600)); // レスポンスの冒頭だけ表示
+            if (!res.ok) process.exit(1);
+          })().catch(e => { console.error(e); process.exit(1); });
+          '
