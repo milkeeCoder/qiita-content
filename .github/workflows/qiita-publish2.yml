@@ -1,11 +1,62 @@
-- name: Publish each markdown in articles
-  env:
-    QIITA_TOKEN: ${{ secrets.QIITA_TOKEN }}
-  run: |
-    set -e
-    ls -la "$GITHUB_WORKSPACE/articles"
-    shopt -s nullglob
-    for f in "$GITHUB_WORKSPACE"/articles/*.md; do
-      echo "Publishing $f"
-      npx @qiita/qiita-cli@latest publish "$f"
-    done
+name: Publish to Qiita
+
+on:
+  workflow_dispatch:
+  push:
+    paths: [ "articles/**" ]
+    branches: [ main ]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # ワークスペースの確認（パスずれの検出用）
+      - name: Show workspace files
+        run: |
+          pwd
+          ls -la
+          ls -la "$GITHUB_WORKSPACE/articles" || true
+
+      # トークン検証（値ミス/権限不足を明示）
+      - name: Verify Qiita token
+        env:
+          QIITA_TOKEN: ${{ secrets.QIITA_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${QIITA_TOKEN:-}" ]; then
+            echo "ERROR: QIITA_TOKEN is empty"; exit 1; fi
+          curl -s -o /tmp/me.json \
+            -H "Authorization: Bearer ${QIITA_TOKEN}" \
+            https://qiita.com/api/v2/authenticated_user \
+            -w "%{http_code}" > /tmp/status.txt
+          code="$(cat /tmp/status.txt)"
+          echo "HTTP ${code}"
+          head -c 200 /tmp/me.json || true
+          if [ "$code" != "200" ]; then
+            echo "Token invalid or lacks scope (need read_qiita & write_qiita)."
+            exit 1
+          fi
+
+      # articles/ 配下の .md を1つずつ投稿（絶対パス指定で確実に）
+      - name: Publish markdowns under articles/
+        env:
+          QIITA_TOKEN: ${{ secrets.QIITA_TOKEN }}
+        run: |
+          set -e
+          shopt -s nullglob
+          files=( "$GITHUB_WORKSPACE"/articles/*.md )
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No .md files found under articles/"; exit 1; fi
+          for f in "${files[@]}"; do
+            echo "Publishing $f"
+            npx @qiita/qiita-cli@latest publish "$f"
+          done
