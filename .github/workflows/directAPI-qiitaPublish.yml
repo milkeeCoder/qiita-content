@@ -1,10 +1,9 @@
-name: Publish to Qiita (API)
+name: Publish/Update to Qiita (API)
 
 on:
   workflow_dispatch:
   push:
-    paths:
-      - "articles/**"
+    paths: [ "articles/**" ]
     branches: [ "main" ]
 
 jobs:
@@ -19,28 +18,25 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Show workspace files
+      - name: Debug - show files
         run: |
           pwd
           ls -la
           ls -la "$GITHUB_WORKSPACE/articles" || true
-          sed -n '1,25p' "$GITHUB_WORKSPACE/articles/firstStep-post.md" || true
 
-      - name: Post one file to Qiita via API
+      # JSをファイルに書き出して実行（ヒアドキュメント事故を防止）
+      - name: Prepare script
         shell: bash
-        env:
-          QIITA_TOKEN: ${{ secrets.QIITA_TOKEN }}
-          FILE: articles/firstStep-post.md
         run: |
-          set -euo pipefail
-          cat > post.js <<'EOF'
+          cat > post_or_patch.js <<'EOF'
           const fs = require('fs');
 
-          const path = process.env.FILE;
-          const token = process.env.QIITA_TOKEN;
-          const summary = process.env.GITHUB_STEP_SUMMARY;
+          const file = process.argv[2];                     // 対象 .md
+          const token = process.env.QIITA_TOKEN;            // シークレット
+          const summary = process.env.GITHUB_STEP_SUMMARY;  // Run summary
 
-          const txt = fs.readFileSync(path, 'utf8');
+          if (!file) { console.error('No file path'); process.exit(1); }
+          const txt = fs.readFileSync(file, 'utf8');
           const lines = txt.split(/\r?\n/);
           if (lines[0].trim() !== '---') { console.error('Front matter not found'); process.exit(1); }
           let i = 1, fm = [];
@@ -49,34 +45,73 @@ jobs:
           const body = lines.slice(i + 1).join('\n');
           const y = fm.join('\n');
 
+          // 必須: title
           const titleMatch = y.match(/^title:\s*(.+)\s*$/m);
           const title = titleMatch ? titleMatch[1].replace(/^"|"$/g,'').trim() : '';
-          if (!title) { console.error('title missing in front matter'); process.exit(1); }
+          if (!title) { console.error('title missing'); process.exit(1); }
 
-          const priv = ((y.match(/^private:\s*(true|false)\s*$/m)||[])[1] === 'true');
+          // 任意: qiita_id（あれば更新）
+          const id = (y.match(/^qiita_id:\s*(.+)\s*$/m) || [])[1]?.replace(/^"|"$/g,'').trim();
 
+          // 必須: tags（- name: タグ名）
           const tags = [];
           const tagRe = /^\s*-\s*name:\s*(.+)\s*$/mg;
-          let m;
-          while ((m = tagRe.exec(y))) { tags.push({ name: m[1].trim(), versions: [] }); }
-          if (!tags.length) { console.error('tags not found'); process.exit(1); }
+          let m; while ((m = tagRe.exec(y))) tags.push({ name: m[1].trim(), versions: [] });
+          if (!tags.length) { console.error('at least one tag required'); process.exit(1); }
+
+          // 任意: private
+          const priv = ((y.match(/^private:\s*(true|false)\s*$/m)||[])[1] === 'true');
 
           (async () => {
-            const res = await fetch('https://qiita.com/api/v2/items', {
-              method: 'POST',
+            const payload = { title, body, tags, private: priv };
+            const endpoint = id
+              ? `https://qiita.com/api/v2/items/${encodeURIComponent(id)}`
+              : 'https://qiita.com/api/v2/items';
+            const method = id ? 'PATCH' : 'POST';
+
+            const res = await fetch(endpoint, {
+              method,
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer ' + token
               },
-              body: JSON.stringify({ title, body, tags, private: priv })
+              body: JSON.stringify(payload)
             });
-            const data = await res.json();
-            console.log('Status', res.status);
-            console.log('URL:', data.url);
-            console.log('ID:', data.id);
-            fs.appendFileSync(summary, `### ✅ Posted: ${title}\n\n- URL: ${data.url}\n- ID: \`${data.id}\`\n`);
-            if (!res.ok) process.exit(1);
+
+            const data = await res.json().catch(() => ({}));
+            const ok = res.ok;
+            const action = id ? 'Updated' : 'Created';
+
+            console.log('Status', res.status, action);
+            if (data.url) console.log('URL:', data.url);
+            if (data.id)  console.log('ID :', data.id);
+
+            // Run summary にも記録
+            fs.appendFileSync(summary,
+              `### ${ok ? '✅' : '❌'} ${action}: ${title}\n`
+              + (data.url ? `- URL: ${data.url}\n` : '')
+              + (data.id  ? `- ID : \`${data.id}\`\n` : '')
+              + '\n'
+            );
+
+            if (!ok) {
+              console.error('Response snippet:', JSON.stringify(data).slice(0, 400));
+              process.exit(1);
+            }
           })().catch(e => { console.error(e); process.exit(1); });
           EOF
 
-          node post.js
+      - name: Publish/Update markdowns under articles/
+        env:
+          QIITA_TOKEN: ${{ secrets.QIITA_TOKEN }}
+        shell: bash
+        run: |
+          set -e
+          shopt -s nullglob
+          files=( "$GITHUB_WORKSPACE"/articles/*.md )
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No .md files found under articles/"; exit 1; fi
+          for f in "${files[@]}"; do
+            echo "Processing $f"
+            node post_or_patch.js "$f"
+          done
