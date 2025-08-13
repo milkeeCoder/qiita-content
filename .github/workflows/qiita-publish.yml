@@ -3,20 +3,28 @@ name: Publish to Qiita
 on:
   workflow_dispatch:
   push:
-    paths:
-      - "articles/**"
+    paths: [ "articles/**" ]
     branches: [ main ]
+
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-        - uses: actions/checkout@v4
-        - uses: actions/setup-node@v4
-          with:
-            node-version: "20"
-        - name: Check qiita-cli version
-          run: npx @qiita/qiita-cli@latest -v
-        - name: Publish articlles to Qiita
-          env:
-            QIITA_TOKEN: ${{ secrets.QIITA_TOKEN }}
-          run: qiita publish articles
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # デバッグ表示（ファイルと先頭25行を確認）
+      - name: Debug list files
+        run: |
+          pwd
+          ls -la
+          ls -la articles || true
+          sed -n '1,25p' articles/firstStep-post.md || true
+
+      # 単一ファイルを直接投稿
+      - name: Publish one file to Qiita
+        env:
+          QIITA_TOKEN: ${{ secrets.QIITA_TOKEN }}
+        run: npx @qiita/qiita-cli@latest publish articles/firstStep-post.md
