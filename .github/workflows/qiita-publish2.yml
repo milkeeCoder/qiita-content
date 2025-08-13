@@ -1,4 +1,4 @@
-name: Publish to Qiita
+name: Publish to Qiita2
 
 on:
   workflow_dispatch:
