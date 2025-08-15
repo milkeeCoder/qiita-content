@@ -13,8 +13,6 @@ tags:
     versions: []
   - name: PHP
     versions: []
-  - name: WordPress
-    versions: []
   - name: Github
     versions: []
 private: false
