@@ -11,6 +11,10 @@ tags:
     versions: []
   - name: Github
     versions: []
+  - name: WordPress
+  - name: HTML
+  - name: CSS
+  - name: PHP
 private: false
 ---
 
