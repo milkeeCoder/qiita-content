@@ -1,6 +1,5 @@
 ---
 title: "ひよこエンジニアの成長への第一歩：初めての案件（身内依頼）に全力で挑む"
-qiita_id:
 publish: true
 tags:
   - name: Markdown
