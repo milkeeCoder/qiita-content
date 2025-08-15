@@ -1,12 +1,17 @@
 ---
 title: "ひよこエンジニアの成長への第一歩：初めての案件（身内依頼）に全力で挑む"
+qiita_id: 6c8deb964575aa0f5b6c
 publish: true
 tags:
   - name: Markdown
     versions: []
   - name: Qiita
     versions: []
-  - name: VSCode
+  - name: HTML/CSS
+    versions: []
+  - name: PHP
+    versions: []
+  - name: WordPress
     versions: []
   - name: Github
     versions: []
