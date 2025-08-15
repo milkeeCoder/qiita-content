@@ -6,13 +6,9 @@ tags:
     versions: []
   - name: Qiita
     versions: []
-  - name: HTML/CSS
+  - name: VSCode
     versions: []
-  - name: PHP
-    versions: []
-  - name: WordPress
-    versions: []
-  - name: GitHub
+  - name: Github
     versions: []
 private: false
 ---
