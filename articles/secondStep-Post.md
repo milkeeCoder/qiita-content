@@ -7,7 +7,9 @@ tags:
     versions: []
   - name: Qiita
     versions: []
-  - name: HTML/CSS
+  - name: HTML
+    versions: []
+  - name: CSS
     versions: []
   - name: PHP
     versions: []
