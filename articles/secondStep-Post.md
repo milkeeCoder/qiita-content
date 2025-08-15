@@ -3,19 +3,15 @@ title: "ひよこエンジニアの成長への第一歩：初めての案件（
 qiita_id: 6c8deb964575aa0f5b6c
 publish: true
 tags:
-  - name: Markdown
-    versions: []
-  - name: Qiita
-    versions: []
-  - name: VSCode
-    versions: []
-  - name: Github
+  - name: WordPress
     versions: []
   - name: HTML
     versions: []
   - name: CSS
     versions: []
   - name: PHP
+    versions: []
+  - name: Github
     versions: []
 private: false
 ---
